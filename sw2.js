@@ -1,16 +1,16 @@
-const CACHE = "controle-contas-v1";
+const CACHE_NAME = "controle-contas-v2";
+
+const FILES = [
+  "./",
+  "./index.html",
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png"
+];
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE).then(cache =>
-      cache.addAll([
-        "/controle-contas/",
-        "/controle-contas/index.html",
-        "/controle-contas/manifest.json",
-        "/controle-contas/icon-192.png",
-        "/controle-contas/icon-512.png"
-      ])
-    )
+    caches.open(CACHE_NAME).then(cache => cache.addAll(FILES))
   );
   self.skipWaiting();
 });
@@ -18,7 +18,9 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.map(k => k !== CACHE && caches.delete(k)))
+      Promise.all(
+        keys.map(key => key !== CACHE_NAME && caches.delete(key))
+      )
     )
   );
   self.clients.claim();
@@ -26,6 +28,13 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   event.respondWith(
-    caches.match(event.request).then(resp => resp || fetch(event.request))
+    caches.match(event.request).then(res => res || fetch(event.request))
+  );
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow("./")
   );
 });
