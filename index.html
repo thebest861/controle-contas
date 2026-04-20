@@ -57,7 +57,13 @@
   </style>
 </head>
 <body>
-
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js")
+    .then(() => console.log("Service Worker registrado"))
+    .catch(err => console.error("SW erro:", err));
+}
+</script>
 <h1>💰 Controle Financeiro</h1>
 
 <div class="box">
@@ -76,6 +82,9 @@
   </label>
 
   <button onclick="adicionarConta()">Adicionar Conta</button>
+  <button onclick="ativarNotificacoes()">
+  Ativar notificações
+</button>
 
   <h2>🛒 Gasto Extra</h2>
   <input id="extraNome" placeholder="Ex: Supermercado, Gás">
@@ -286,6 +295,12 @@ gerarRecorrentes();
 render();
 setInterval(verificarNotificacoes, 60000);
 </script>
-
+function ativarNotificacoes() {
+  Notification.requestPermission().then(p => {
+    if (p === "granted") {
+      alert("Notificações ativadas!");
+    }
+  });
+}
 </body>
 </html>
