@@ -2,10 +2,128 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Teste</title>
+  <title>Controle de Contas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 15px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .box {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      max-width: 500px;
+      margin: auto;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 16px;
+    }
+    button {
+      background: #2e7d32;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+    }
+    .conta {
+      background: #eee;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+    .paga {
+      background: #d4ffd4;
+      text-decoration: line-through;
+    }
+  </style>
 </head>
 <body>
-  <h1>FUNCIONANDO NO PC</h1>
-  <p>Se você está vendo isso, o GitHub Pages está OK.</p>
+
+<h1>💰 Controle de Contas</h1>
+
+<div class="box">
+  <input id="nome" placeholder="Nome da conta (ex: Luz)">
+  <input id="valor" type="number" placeholder="Valor (R$)">
+  <input id="vencimento" type="date">
+
+  <button onclick="adicionar()">Adicionar Conta</button>
+
+  <h3>📅 Pendentes</h3>
+  <div id="pendentes"></div>
+
+  <h3>✅ Pagas</h3>
+  <div id="pagas"></div>
+</div>
+
+<script>
+  const nome = document.getElementById("nome");
+  const valor = document.getElementById("valor");
+  const vencimento = document.getElementById("vencimento");
+  const pendentes = document.getElementById("pendentes");
+  const pagas = document.getElementById("pagas");
+
+  let contas = JSON.parse(localStorage.getItem("contas")) || [];
+
+  function salvar() {
+    localStorage.setItem("contas", JSON.stringify(contas));
+    render();
+  }
+
+  function adicionar() {
+    if (!nome.value || !valor.value || !vencimento.value) {
+      alert("Preencha todos os campos");
+      return;
+    }
+
+    contas.push({
+      nome: nome.value,
+      valor: valor.value,
+      vencimento: vencimento.value,
+      paga: false
+    });
+
+    nome.value = "";
+    valor.value = "";
+    vencimento.value = "";
+
+    salvar();
+  }
+
+  function pagar(index) {
+    contas[index].paga = true;
+    salvar();
+  }
+
+  function render() {
+    pendentes.innerHTML = "";
+    pagas.innerHTML = "";
+
+    contas.forEach((c, i) => {
+      const div = document.createElement("div");
+      div.className = "conta" + (c.paga ? " paga" : "");
+
+      div.innerHTML = `
+        <strong>${c.nome}</strong><br>
+        R$ ${Number(c.valor).toFixed(2)}<br>
+        Vencimento: ${c.vencimento}<br>
+        ${!c.paga ? `<button onclick="pagar(${i})">Marcar como paga</button>` : ""}
+      `;
+
+      c.paga ? pagas.appendChild(div) : pendentes.appendChild(div);
+    });
+  }
+
+  render();
+</script>
+
 </body>
 </html>
