@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Controle de Contas</title>
 
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/controle-contas/manifest.json">
 <meta name="theme-color" content="#2e7d32">
 
 <style>
@@ -66,80 +66,82 @@ button {
 </div>
 
 <script>
-let contas = JSON.parse(localStorage.getItem("contas")) || [];
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js");
-}
+  const nome = document.getElementById("nome");
+  const valor = document.getElementById("valor");
+  const vencimento = document.getElementById("vencimento");
+  const pendentes = document.getElementById("pendentes");
+  const pagas = document.getElementById("pagas");
 
-Notification.requestPermission();
+  let contas = JSON.parse(localStorage.getItem("contas")) || [];
 
-function addConta() {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/controle-contas/sw.js");
+  }
+
+  if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+  }
+
+  window.addConta = function () {
+    if (!nome.value || !valor.value || !vencimento.value) {
+      alert("Preencha todos os campos");
+      return;
+    }
+
     contas.push({
-        nome: nome.value,
-        valor: valor.value,
-        vencimento: vencimento.value,
-        paga: false,
-        notificada: false
+      nome: nome.value,
+      valor: valor.value,
+      vencimento: vencimento.value,
+      paga: false
     });
-    salvar();
-}
 
-function salvar() {
+    nome.value = "";
+    valor.value = "";
+    vencimento.value = "";
+
+    salvar();
+  };
+
+  function salvar() {
     localStorage.setItem("contas", JSON.stringify(contas));
     render();
-}
+  }
 
-function render() {
+  function render() {
     pendentes.innerHTML = "";
     pagas.innerHTML = "";
 
     const hoje = new Date();
 
     contas.forEach((c, i) => {
-        const data = new Date(c.vencimento);
-        const diff = Math.ceil((data - hoje) / 86400000);
+      const data = new Date(c.vencimento);
+      const diff = Math.ceil((data - hoje) / 86400000);
 
-        const div = document.createElement("div");
-        div.className = "conta";
+      const div = document.createElement("div");
+      div.className = "conta";
 
-        if (c.paga) div.classList.add("paga");
-        if (!c.paga && diff <= 2 && diff >= 0) div.classList.add("vencendo");
+      div.innerHTML = `
+        <b>${c.nome}</b><br>
+        R$ ${Number(c.valor).toFixed(2)}<br>
+        Vence em ${diff} dia(s)<br>
+        ${!c.paga ? `<button onclick="pagar(${i})">Marcar como paga</button>` : ""}
+      `;
 
-        div.innerHTML = `
-            <b>${c.nome}</b><br>
-            R$ ${Number(c.valor).toFixed(2)}<br>
-            Vence em ${diff} dia(s)<br>
-            ${!c.paga ? `<button onclick="pagar(${i})">Marcar como paga</button>` : ""}
-        `;
-
-        c.paga ? pagas.appendChild(div) : pendentes.appendChild(div);
-
-        if (!c.paga && diff <= 2 && !c.notificada) {
-            notificar(c);
-            c.notificada = true;
-            salvar();
-        }
+      c.paga ? pagas.appendChild(div) : pendentes.appendChild(div);
     });
-}
+  }
 
-function pagar(i) {
+  window.pagar = function (i) {
     contas[i].paga = true;
     salvar();
-}
+  };
 
-function notificar(conta) {
-    if (Notification.permission === "granted") {
-        navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification("Conta próxima do vencimento", {
-                body: `${conta.nome} - R$ ${conta.valor}`,
-                icon: "icon-192.png"
-            });
-        });
-    }
-}
-
-render();
+  render();
+});
+</script>
 </script>
 </body>
 </html>
