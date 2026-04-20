@@ -1,19 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <link rel="manifest" href="/controle-contas/manifest.json">
-<meta name="theme-color" content="#2e7d32">
   <meta charset="UTF-8">
-  <title>Controle de Contas</title>
+  <title>Controle Financeiro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#2e7d32">
+  <link rel="manifest" href="./manifest.json">
 
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #f2f2f2;
-      margin: 0;
       padding: 15px;
+      margin: 0;
     }
     h1, h2 {
       text-align: center;
@@ -25,7 +24,7 @@
       max-width: 520px;
       margin: auto;
     }
-    input, select, button {
+    input, button {
       width: 100%;
       padding: 10px;
       margin-top: 8px;
@@ -37,6 +36,13 @@
       border: none;
       border-radius: 5px;
       cursor: pointer;
+    }
+    .btn-excluir {
+      background: #c62828;
+    }
+    .btn-editar {
+      background: #1565c0;
+      margin-top: 5px;
     }
     .conta {
       background: #eee;
@@ -56,14 +62,9 @@
     }
   </style>
 </head>
+
 <body>
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js")
-    .then(() => console.log("Service Worker registrado"))
-    .catch(err => console.error("SW erro:", err));
-}
-</script>
+
 <h1>💰 Controle Financeiro</h1>
 
 <div class="box">
@@ -72,19 +73,15 @@ if ("serviceWorker" in navigator) {
   <input type="month" id="filtroMes">
 
   <h2>➕ Nova Conta</h2>
-  <input id="nome" placeholder="Nome da conta (ex: Luz)">
+  <input id="nome" placeholder="Nome da conta">
   <input id="valor" type="number" placeholder="Valor (R$)">
   <input id="vencimento" type="date">
-
   <label>
-    <input type="checkbox" id="recorrente">
-    Conta mensal (recorrente)
+    <input type="checkbox" id="recorrente"> Conta mensal
   </label>
 
   <button onclick="adicionarConta()">Adicionar Conta</button>
-  <button onclick="ativarNotificacoes()">
-  Ativar notificações
-</button>
+  <button onclick="ativarNotificacoes()">Ativar notificações</button>
 
   <h2>🛒 Gasto Extra</h2>
   <input id="extraNome" placeholder="Ex: Supermercado, Gás">
@@ -108,17 +105,12 @@ if ("serviceWorker" in navigator) {
 </div>
 
 <script>
-  if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/controle-contas/sw.js");
-}
+/* ===== SERVICE WORKER ===== */
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.register("./sw.js");
 }
 
-if (Notification.permission !== "granted") {
-  Notification.requestPermission();
-}
-
+/* ===== DADOS ===== */
 let contas = JSON.parse(localStorage.getItem("contas")) || [];
 let extras = JSON.parse(localStorage.getItem("extras")) || [];
 
@@ -126,11 +118,13 @@ const pendentes = document.getElementById("pendentes");
 const pagas = document.getElementById("pagas");
 const filtroMes = document.getElementById("filtroMes");
 
+/* ===== SALVAR ===== */
 function salvar() {
   localStorage.setItem("contas", JSON.stringify(contas));
   localStorage.setItem("extras", JSON.stringify(extras));
 }
 
+/* ===== ADICIONAR ===== */
 function adicionarConta() {
   const nome = document.getElementById("nome").value;
   const valor = document.getElementById("valor").value;
@@ -142,7 +136,7 @@ function adicionarConta() {
     return;
   }
 
-  const data = new Date(vencimento);
+  const d = new Date(vencimento);
 
   contas.push({
     nome,
@@ -150,15 +144,55 @@ function adicionarConta() {
     vencimento,
     recorrente,
     paga: false,
-    notificada: false,
-    mes: data.getMonth(),
-    ano: data.getFullYear()
+    mes: d.getMonth(),
+    ano: d.getFullYear()
   });
 
   salvar();
   render();
 }
 
+/* ===== EDITAR ===== */
+function editarConta(i) {
+  const c = contas[i];
+
+  const novoNome = prompt("Nome da conta:", c.nome);
+  if (novoNome === null) return;
+
+  const novoValor = prompt("Valor (R$):", c.valor);
+  if (novoValor === null || isNaN(novoValor)) return;
+
+  const novoVenc = prompt("Vencimento (AAAA-MM-DD):", c.vencimento);
+  if (novoVenc === null) return;
+
+  const d = new Date(novoVenc);
+
+  c.nome = novoNome;
+  c.valor = Number(novoValor);
+  c.vencimento = novoVenc;
+  c.mes = d.getMonth();
+  c.ano = d.getFullYear();
+
+  salvar();
+  render();
+}
+
+/* ===== EXCLUIR ===== */
+function excluirConta(i) {
+  if (!confirm("Deseja excluir esta conta?")) return;
+  contas.splice(i, 1);
+  salvar();
+  render();
+}
+
+/* ===== PAGAR ===== */
+function pagarConta(i) {
+  contas[i].paga = true;
+  salvar();
+  render();
+}
+
+/* ===== GASTO EXTRA ===== */
 function adicionarExtra() {
   const nome = document.getElementById("extraNome").value;
   const valor = document.getElementById("extraValor").value;
@@ -181,44 +215,7 @@ function adicionarExtra() {
   render();
 }
 
-function pagarConta(i) {
-  contas[i].paga = true;
-  salvar();
-  render();
-}
-
-function gerarRecorrentes() {
-  const hoje = new Date();
-  const mes = hoje.getMonth();
-  const ano = hoje.getFullYear();
-
-  contas.forEach(c => {
-    if (c.recorrente) {
-      const existe = contas.some(x =>
-        x.nome === c.nome && x.mes === mes && x.ano === ano
-      );
-
-      if (!existe) {
-        const dia = new Date(c.vencimento).getDate();
-        const novaData = new Date(ano, mes, dia);
-
-        contas.push({
-          nome: c.nome,
-          valor: c.valor,
-          vencimento: novaData.toISOString().split("T")[0],
-          recorrente: true,
-          paga: false,
-          notificada: false,
-          mes,
-          ano
-        });
-      }
-    }
-  });
-
-  salvar();
-}
-
+/* ===== RENDER ===== */
 function render() {
   pendentes.innerHTML = "";
   pagas.innerHTML = "";
@@ -227,12 +224,12 @@ function render() {
   let totalPago = 0;
   let totalExtra = 0;
 
-  const filtro = filtroMes.value
+  const base = filtroMes.value
     ? new Date(filtroMes.value + "-01")
     : new Date();
 
-  const mes = filtro.getMonth();
-  const ano = filtro.getFullYear();
+  const mes = base.getMonth();
+  const ano = base.getFullYear();
 
   contas.forEach((c, i) => {
     if (c.mes !== mes || c.ano !== ano) return;
@@ -243,8 +240,9 @@ function render() {
     div.innerHTML = `
       <strong>${c.nome}</strong><br>
       R$ ${c.valor.toFixed(2)}<br>
-      Vencimento: ${c.vencimento}<br>
+      <button onclick="editarConta(${i})" class="btn-editar">✏️ Editar</button>
       ${!c.paga ? `<button onclick="pagarConta(${i})">Marcar como paga</button>` : ""}
+      <button onclick="excluirConta(${i})" class="btn-excluir">🗑 Excluir</button>
     `;
 
     if (c.paga) {
@@ -269,38 +267,15 @@ function render() {
     (totalPendente + totalPago + totalExtra).toFixed(2);
 }
 
-function verificarNotificacoes() {
-  const agora = new Date();
-  if (agora.getHours() !== 12) return;
-
-  contas.forEach(c => {
-    if (c.paga || c.notificada) return;
-
-    const venc = new Date(c.vencimento);
-    const dias = Math.ceil((venc - agora) / 86400000);
-
-    if (dias === 2) {
-      navigator.serviceWorker.ready.then(reg => {
-        reg.showNotification("Conta vence em 2 dias", {
-          body: `${c.nome} - R$ ${c.valor.toFixed(2)}`
-        });
-      });
-      c.notificada = true;
-      salvar();
-    }
-  });
-}
-
-gerarRecorrentes();
-render();
-setInterval(verificarNotificacoes, 60000);
-</script>
+/* ===== NOTIFICAÇÕES ===== */
 function ativarNotificacoes() {
   Notification.requestPermission().then(p => {
-    if (p === "granted") {
-      alert("Notificações ativadas!");
-    }
+    if (p === "granted") alert("Notificações ativadas!");
   });
 }
+
+render();
+</script>
+
 </body>
 </html>
