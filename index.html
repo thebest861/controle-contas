@@ -58,6 +58,10 @@
   <input id="vencimento" type="date">
 
   <button onclick="adicionar()">Adicionar Conta</button>
+  <label>
+  <input type="checkbox" id="recorrente">
+  Conta mensal (não preciso cadastrar todo mês)
+</label>
 
   <h3>📅 Pendentes</h3>
   <div id="pendentes"></div>
@@ -87,11 +91,31 @@ if (Notification.permission !== "granted") {
     render();
   }
 
-  function adicionar() {
-    if (!nome.value || !valor.value || !vencimento.value) {
-      alert("Preencha todos os campos");
-      return;
-    }
+  function addConta() {
+  const nome = document.getElementById("nome").value;
+  const valor = document.getElementById("valor").value;
+  const vencimento = document.getElementById("vencimento").value;
+  const recorrente = document.getElementById("recorrente").checked;
+
+  if (!nome || !valor || !vencimento) {
+    alert("Preencha todos os campos");
+    return;
+  }
+
+  contas.push({
+    nome: nome,
+    valor: valor,
+    vencimento: vencimento,
+    recorrente: recorrente,
+    paga: false,
+    notificada: false,
+    mesRef: new Date(vencimento).getMonth(),
+    anoRef: new Date(vencimento).getFullYear()
+  });
+
+  salvar();
+  render();
+}
 
     contas.push({
       nome: nome.value,
@@ -149,6 +173,65 @@ if (Notification.permission !== "granted") {
 
   render();
 </script>
+function gerarContasDoMes() {
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth();
+  const anoAtual = hoje.getFullYear();
 
+  contas.forEach(c => {
+    if (c.recorrente) {
+      const jaExiste = contas.some(x =>
+        x.nome === c.nome &&
+        x.mesRef === mesAtual &&
+        x.anoRef === anoAtual
+      );
+
+      if (!jaExiste) {
+        const dia = new Date(c.vencimento).getDate();
+        const novoVenc = new Date(anoAtual, mesAtual, dia);
+
+        contas.push({
+          nome: c.nome,
+          valor: c.valor,
+          vencimento: novoVenc.toISOString().split("T")[0],
+          recorrente: true,
+          paga: false,
+          notificada: false,
+          mesRef: mesAtual,
+          anoRef: anoAtual
+        });
+      }
+    }
+  });
+
+  salvar();
+}
+  function verificarNotificacoes() {
+  const agora = new Date();
+
+  if (agora.getHours() !== 12) return;
+
+  contas.forEach(c => {
+    if (c.paga || c.notificada) return;
+
+    const venc = new Date(c.vencimento);
+    const dias = Math.ceil((venc - agora) / 86400000);
+
+    if (dias === 2) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification("Conta vence em 2 dias", {
+          body: `${c.nome} - R$ ${Number(c.valor).toFixed(2)}`,
+          icon: "icon-192.png"
+        });
+      });
+
+      c.notificada = true;
+      salvar();
+    }
+  });
+}
+  gerarContasDoMes();
+render();
+setInterval(verificarNotificacoes, 60000);
 </body>
 </html>
