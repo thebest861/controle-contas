@@ -1,280 +1,210 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Controle Financeiro</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#2e7d32">
-  <link rel="manifest" href="./manifest.json">
+<meta charset="UTF-8">
+<title>Controle de Contas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2e7d32">
+<link rel="manifest" href="manifest.json">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      padding: 15px;
-      margin: 0;
-    }
-    h1, h2 {
-      text-align: center;
-    }
-    .box {
-      background: #fff;
-      padding: 15px;
-      border-radius: 8px;
-      max-width: 520px;
-      margin: auto;
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 8px;
-      font-size: 16px;
-    }
-    button {
-      background: #2e7d32;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .btn-excluir {
-      background: #c62828;
-    }
-    .btn-editar {
-      background: #1565c0;
-      margin-top: 5px;
-    }
-    .conta {
-      background: #eee;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 6px;
-    }
-    .paga {
-      background: #d4ffd4;
-      text-decoration: line-through;
-    }
-    .resumo {
-      background: #e8f5e9;
-      padding: 10px;
-      border-radius: 6px;
-      margin-top: 10px;
-    }
-  </style>
+<style>
+body{font-family:Arial;background:#f2f2f2;padding:15px}
+.box{background:#fff;padding:15px;border-radius:8px;max-width:520px;margin:auto}
+input,button{width:100%;padding:10px;margin-top:8px}
+button{background:#2e7d32;color:#fff;border:0;border-radius:5px}
+.conta{background:#eee;padding:10px;margin-top:10px;border-radius:6px}
+.paga{background:#d4ffd4;text-decoration:line-through}
+.btn-excluir{background:#c62828}
+.resumo{background:#e8f5e9;padding:10px;border-radius:6px;margin-top:10px}
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:#2e7d32;color:#fff;padding:12px 20px;
+  border-radius:20px;display:none
+}
+</style>
 </head>
 
 <body>
 
-<h1>💰 Controle Financeiro</h1>
+<h2 align="center">💰 Controle de Contas</h2>
 
 <div class="box">
 
-  <h2>📅 Filtro por mês</h2>
-  <input type="month" id="filtroMes">
+<h3>📅 Filtro por mês</h3>
+<input type="month" id="filtroMes">
 
-  <h2>➕ Nova Conta</h2>
-  <input id="nome" placeholder="Nome da conta">
-  <input id="valor" type="number" placeholder="Valor (R$)">
-  <input id="vencimento" type="date">
-  <label>
-    <input type="checkbox" id="recorrente"> Conta mensal
-  </label>
+<h3>➕ Nova Conta</h3>
+<input id="nome" placeholder="Nome da conta">
+<input id="valor" type="number" placeholder="Valor">
+<input id="vencimento" type="date">
 
-  <button onclick="adicionarConta()">Adicionar Conta</button>
-  <button onclick="ativarNotificacoes()">Ativar notificações</button>
+<button onclick="adicionarConta()">Adicionar Conta</button>
 
-  <h2>🛒 Gasto Extra</h2>
-  <input id="extraNome" placeholder="Ex: Supermercado, Gás">
-  <input id="extraValor" type="number" placeholder="Valor (R$)">
-  <button onclick="adicionarExtra()">Adicionar Gasto Extra</button>
+<div class="resumo">
+<b>Total Pago:</b> R$ <span id="totalPago">0.00</span><br>
+<b>Total Pendente:</b> R$ <span id="totalPendente">0.00</span><br>
+<hr>
+<b>Total do Mês:</b> R$ <span id="totalMes">0.00</span>
+</div>
 
-  <div class="resumo">
-    <strong>Total Pendente:</strong> R$ <span id="totalPendente">0.00</span><br>
-    <strong>Total Pago:</strong> R$ <span id="totalPago">0.00</span><br>
-    <strong>Gastos Extras:</strong> R$ <span id="totalExtra">0.00</span><br>
-    <hr>
-    <strong>Total do Mês:</strong> R$ <span id="totalMes">0.00</span>
-  </div>
+<h3>📌 Pendentes</h3>
+<div id="pendentes"></div>
 
-  <h2>📌 Pendentes</h2>
-  <div id="pendentes"></div>
-
-  <h2>✅ Pagas</h2>
-  <div id="pagas"></div>
+<h3>✅ Pagas</h3>
+<div id="pagas"></div>
 
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-/* ===== SERVICE WORKER ===== */
+/* ===== PWA ===== */
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js");
+  navigator.serviceWorker.register("sw.js");
 }
+Notification.requestPermission();
 
 /* ===== DADOS ===== */
 let contas = JSON.parse(localStorage.getItem("contas")) || [];
-let extras = JSON.parse(localStorage.getItem("extras")) || [];
 
 const pendentes = document.getElementById("pendentes");
 const pagas = document.getElementById("pagas");
 const filtroMes = document.getElementById("filtroMes");
+const nomeInput = document.getElementById("nome");
+const valorInput = document.getElementById("valor");
+const vencimentoInput = document.getElementById("vencimento");
 
-/* ===== SALVAR ===== */
-function salvar() {
+/* ===== UTIL ===== */
+function salvar(){
   localStorage.setItem("contas", JSON.stringify(contas));
-  localStorage.setItem("extras", JSON.stringify(extras));
 }
 
-/* ===== ADICIONAR ===== */
-function adicionarConta() {
-  const nome = document.getElementById("nome").value;
-  const valor = document.getElementById("valor").value;
-  const vencimento = document.getElementById("vencimento").value;
-  const recorrente = document.getElementById("recorrente").checked;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.innerText=msg;
+  t.style.display="block";
+  setTimeout(()=>t.style.display="none",2500);
+}
 
-  if (!nome || !valor || !vencimento) {
+/* ===== CRUD ===== */
+function adicionarConta(){
+  const nome = nomeInput.value.trim();
+  const valor = Number(valorInput.value);
+  const venc = vencimentoInput.value;
+
+  if(!nome || !valor || !venc){
     alert("Preencha todos os campos");
     return;
   }
 
-  const d = new Date(vencimento);
+  const d = new Date(venc);
+  const mes = d.getMonth();
+  const ano = d.getFullYear();
 
-  contas.push({
-    nome,
-    valor: Number(valor),
-    vencimento,
-    recorrente,
-    paga: false,
-    mes: d.getMonth(),
-    ano: d.getFullYear()
-  });
-
-  salvar();
-  render();
-}
-
-/* ===== EDITAR ===== */
-function editarConta(i) {
-  const c = contas[i];
-
-  const novoNome = prompt("Nome da conta:", c.nome);
-  if (novoNome === null) return;
-
-  const novoValor = prompt("Valor (R$):", c.valor);
-  if (novoValor === null || isNaN(novoValor)) return;
-
-  const novoVenc = prompt("Vencimento (AAAA-MM-DD):", c.vencimento);
-  if (novoVenc === null) return;
-
-  const d = new Date(novoVenc);
-
-  c.nome = novoNome;
-  c.valor = Number(novoValor);
-  c.vencimento = novoVenc;
-  c.mes = d.getMonth();
-  c.ano = d.getFullYear();
-
-  salvar();
-  render();
-}
-
-/* ===== EXCLUIR ===== */
-function excluirConta(i) {
-  if (!confirm("Deseja excluir esta conta?")) return;
-  contas.splice(i, 1);
-  salvar();
-  render();
-}
-
-/* ===== PAGAR ===== */
-function pagarConta(i) {
-  contas[i].paga = true;
-  salvar();
-  render();
-}
-
-/* ===== GASTO EXTRA ===== */
-function adicionarExtra() {
-  const nome = document.getElementById("extraNome").value;
-  const valor = document.getElementById("extraValor").value;
-
-  if (!nome || !valor) {
-    alert("Preencha o gasto extra");
+  if(contas.some(c =>
+    c.nome.toLowerCase() === nome.toLowerCase() &&
+    c.mes === mes && c.ano === ano
+  )){
+    alert("Conta duplicada neste mês");
     return;
   }
 
-  const hoje = new Date();
-
-  extras.push({
-    nome,
-    valor: Number(valor),
-    mes: hoje.getMonth(),
-    ano: hoje.getFullYear()
+  contas.push({
+    nome, valor,
+    vencimento: venc,
+    paga:false,
+    notificada:false,
+    mes, ano
   });
 
   salvar();
   render();
+
+  nomeInput.value = valorInput.value = vencimentoInput.value = "";
+  nomeInput.focus();
+  toast("Conta adicionada ✔");
+}
+
+function pagarConta(i){
+  contas[i].paga=true;
+  salvar(); render();
+}
+
+function excluirConta(i){
+  if(confirm("Excluir esta conta?")){
+    contas.splice(i,1);
+    salvar(); render();
+  }
 }
 
 /* ===== RENDER ===== */
-function render() {
-  pendentes.innerHTML = "";
-  pagas.innerHTML = "";
+function render(){
+  pendentes.innerHTML="";
+  pagas.innerHTML="";
 
-  let totalPendente = 0;
-  let totalPago = 0;
-  let totalExtra = 0;
+  let pago=0, pendente=0;
 
   const base = filtroMes.value
-    ? new Date(filtroMes.value + "-01")
+    ? new Date(filtroMes.value+"-01")
     : new Date();
 
   const mes = base.getMonth();
   const ano = base.getFullYear();
 
-  contas.forEach((c, i) => {
-    if (c.mes !== mes || c.ano !== ano) return;
+  contas.forEach((c,i)=>{
+    if(c.mes!==mes || c.ano!==ano) return;
 
-    const div = document.createElement("div");
-    div.className = "conta" + (c.paga ? " paga" : "");
-
-    div.innerHTML = `
-      <strong>${c.nome}</strong><br>
+    const div=document.createElement("div");
+    div.className="conta"+(c.paga?" paga":"");
+    div.innerHTML=`
+      <b>${c.nome}</b><br>
       R$ ${c.valor.toFixed(2)}<br>
-      <button onclick="editarConta(${i})" class="btn-editar">✏️ Editar</button>
-      ${!c.paga ? `<button onclick="pagarConta(${i})">Marcar como paga</button>` : ""}
-      <button onclick="excluirConta(${i})" class="btn-excluir">🗑 Excluir</button>
+      ${!c.paga?`<button onclick="pagarConta(${i})">Pagar</button>`:""}
+      <button class="btn-excluir" onclick="excluirConta(${i})">Excluir</button>
     `;
 
-    if (c.paga) {
-      totalPago += c.valor;
+    if(c.paga){
+      pago+=c.valor;
       pagas.appendChild(div);
-    } else {
-      totalPendente += c.valor;
+    }else{
+      pendente+=c.valor;
       pendentes.appendChild(div);
     }
   });
 
-  extras.forEach(e => {
-    if (e.mes === mes && e.ano === ano) {
-      totalExtra += e.valor;
+  totalPago.innerText=pago.toFixed(2);
+  totalPendente.innerText=pendente.toFixed(2);
+  totalMes.innerText=(pago+pendente).toFixed(2);
+}
+
+/* ===== NOTIFICAÇÃO 2 DIAS ANTES ÀS 12H ===== */
+function verificarNotificacoes(){
+  const agora=new Date();
+  if(agora.getHours()!==12) return;
+
+  contas.forEach(c=>{
+    if(c.paga||c.notificada) return;
+
+    const venc=new Date(c.vencimento);
+    const dias=Math.ceil((venc-agora)/86400000);
+
+    if(dias===2){
+      navigator.serviceWorker.ready.then(reg=>{
+        reg.showNotification("Conta vence em 2 dias",{
+          body:`${c.nome} - R$ ${c.valor.toFixed(2)}`,
+          icon:"icon-192.png"
+        });
+      });
+      c.notificada=true;
+      salvar();
     }
   });
-
-  document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
-  document.getElementById("totalPago").innerText = totalPago.toFixed(2);
-  document.getElementById("totalExtra").innerText = totalExtra.toFixed(2);
-  document.getElementById("totalMes").innerText =
-    (totalPendente + totalPago + totalExtra).toFixed(2);
 }
 
-/* ===== NOTIFICAÇÕES ===== */
-function ativarNotificacoes() {
-  Notification.requestPermission().then(p => {
-    if (p === "granted") alert("Notificações ativadas!");
-  });
-}
-
+setInterval(verificarNotificacoes,60000);
+filtroMes.addEventListener("change",render);
 render();
+nomeInput.focus();
 </script>
 
 </body>
