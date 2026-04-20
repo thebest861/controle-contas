@@ -1,147 +1,19 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Controle de Contas</title>
-
-<link rel="manifest" href="/controle-contas/manifest.json">
-<meta name="theme-color" content="#2e7d32">
-
-<style>
-body {
-    font-family: Arial;
-    background: #f2f2f2;
-    padding: 15px;
-}
-.container {
-    max-width: 600px;
-    margin: auto;
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-}
-input, button {
-    width: 100%;
-    padding: 10px;
-    margin-top: 8px;
-}
-button {
-    background: #2e7d32;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-.conta {
-    background: #eee;
-    padding: 10px;
-    margin-top: 10px;
-    border-radius: 6px;
-}
-.vencendo {
-    background: #ffdddd;
-}
-.paga {
-    background: #ddffdd;
-    text-decoration: line-through;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>Controle de Contas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
+<body style="font-family:Arial;padding:20px">
 
-<body>
+<h1>FUNCIONOU ✅</h1>
 
-<div class="container">
-<h2>💰 Controle de Contas</h2>
+<p>Se você está vendo isso, o HTML está carregando.</p>
 
-<input id="nome" placeholder="Nome da conta">
-<input id="valor" type="number" placeholder="Valor">
-<input id="vencimento" type="date">
+<button onclick="alert('JavaScript funcionando!')">
+  Testar JavaScript
+</button>
 
-<button onclick="addConta()">Adicionar</button>
-
-<h3>📅 Contas Pendentes</h3>
-<div id="pendentes"></div>
-
-<h3>✅ Contas Pagas</h3>
-<div id="pagas"></div>
-</div>
-
-<script>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-
-  const nome = document.getElementById("nome");
-  const valor = document.getElementById("valor");
-  const vencimento = document.getElementById("vencimento");
-  const pendentes = document.getElementById("pendentes");
-  const pagas = document.getElementById("pagas");
-
-  let contas = JSON.parse(localStorage.getItem("contas")) || [];
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/controle-contas/sw.js");
-  }
-
-  if (Notification.permission !== "granted") {
-    Notification.requestPermission();
-  }
-
-  window.addConta = function () {
-    if (!nome.value || !valor.value || !vencimento.value) {
-      alert("Preencha todos os campos");
-      return;
-    }
-
-    contas.push({
-      nome: nome.value,
-      valor: valor.value,
-      vencimento: vencimento.value,
-      paga: false
-    });
-
-    nome.value = "";
-    valor.value = "";
-    vencimento.value = "";
-
-    salvar();
-  };
-
-  function salvar() {
-    localStorage.setItem("contas", JSON.stringify(contas));
-    render();
-  }
-
-  function render() {
-    pendentes.innerHTML = "";
-    pagas.innerHTML = "";
-
-    const hoje = new Date();
-
-    contas.forEach((c, i) => {
-      const data = new Date(c.vencimento);
-      const diff = Math.ceil((data - hoje) / 86400000);
-
-      const div = document.createElement("div");
-      div.className = "conta";
-
-      div.innerHTML = `
-        <b>${c.nome}</b><br>
-        R$ ${Number(c.valor).toFixed(2)}<br>
-        Vence em ${diff} dia(s)<br>
-        ${!c.paga ? `<button onclick="pagar(${i})">Marcar como paga</button>` : ""}
-      `;
-
-      c.paga ? pagas.appendChild(div) : pendentes.appendChild(div);
-    });
-  }
-
-  window.pagar = function (i) {
-    contas[i].paga = true;
-    salvar();
-  };
-
-  render();
-});
-</script>
-</script>
 </body>
 </html>
