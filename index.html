@@ -4,28 +4,26 @@
   <meta charset="UTF-8">
   <title>Controle de Contas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <link rel="manifest" href="/controle-contas/manifest.json">
   <meta name="theme-color" content="#2e7d32">
 
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #f2f2f2;
-      padding: 15px;
       margin: 0;
+      padding: 15px;
     }
-    h1 {
+    h1, h2 {
       text-align: center;
     }
     .box {
       background: #fff;
       padding: 15px;
       border-radius: 8px;
-      max-width: 500px;
+      max-width: 520px;
       margin: auto;
     }
-    input, button {
+    input, select, button {
       width: 100%;
       padding: 10px;
       margin-top: 8px;
@@ -36,6 +34,7 @@
       color: #fff;
       border: none;
       border-radius: 5px;
+      cursor: pointer;
     }
     .conta {
       background: #eee;
@@ -47,71 +46,78 @@
       background: #d4ffd4;
       text-decoration: line-through;
     }
-    .total {
-      background: #2e7d32;
-      color: #fff;
-      padding: 12px;
-      margin-top: 15px;
+    .resumo {
+      background: #e8f5e9;
+      padding: 10px;
       border-radius: 6px;
-      text-align: center;
-      font-size: 18px;
-      font-weight: bold;
+      margin-top: 10px;
     }
   </style>
 </head>
-
 <body>
 
-<h1>💰 Controle de Contas</h1>
+<h1>💰 Controle Financeiro</h1>
 
 <div class="box">
 
-  <div class="total" id="totalMes">
-    Total do mês: R$ 0,00
-  </div>
+  <h2>📅 Filtro por mês</h2>
+  <input type="month" id="filtroMes">
 
+  <h2>➕ Nova Conta</h2>
   <input id="nome" placeholder="Nome da conta (ex: Luz)">
   <input id="valor" type="number" placeholder="Valor (R$)">
   <input id="vencimento" type="date">
 
   <label>
     <input type="checkbox" id="recorrente">
-    Conta mensal (não preciso cadastrar todo mês)
+    Conta mensal (recorrente)
   </label>
 
-  <button onclick="addConta()">Adicionar Conta</button>
+  <button onclick="adicionarConta()">Adicionar Conta</button>
 
-  <h3>📅 Pendentes</h3>
+  <h2>🛒 Gasto Extra</h2>
+  <input id="extraNome" placeholder="Ex: Supermercado, Gás">
+  <input id="extraValor" type="number" placeholder="Valor (R$)">
+  <button onclick="adicionarExtra()">Adicionar Gasto Extra</button>
+
+  <div class="resumo">
+    <strong>Total Pendente:</strong> R$ <span id="totalPendente">0.00</span><br>
+    <strong>Total Pago:</strong> R$ <span id="totalPago">0.00</span><br>
+    <strong>Gastos Extras:</strong> R$ <span id="totalExtra">0.00</span><br>
+    <hr>
+    <strong>Total do Mês:</strong> R$ <span id="totalMes">0.00</span>
+  </div>
+
+  <h2>📌 Pendentes</h2>
   <div id="pendentes"></div>
 
-  <h3>✅ Pagas</h3>
+  <h2>✅ Pagas</h2>
   <div id="pagas"></div>
+
 </div>
 
 <script>
-/* ===== PWA ===== */
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/controle-contas/sw.js");
+  navigator.serviceWorker.register("sw.js");
 }
+
 if (Notification.permission !== "granted") {
   Notification.requestPermission();
 }
 
-/* ===== ELEMENTOS ===== */
+let contas = JSON.parse(localStorage.getItem("contas")) || [];
+let extras = JSON.parse(localStorage.getItem("extras")) || [];
+
 const pendentes = document.getElementById("pendentes");
 const pagas = document.getElementById("pagas");
-const totalMesDiv = document.getElementById("totalMes");
+const filtroMes = document.getElementById("filtroMes");
 
-/* ===== DADOS ===== */
-let contas = JSON.parse(localStorage.getItem("contas")) || [];
-
-/* ===== SALVAR ===== */
 function salvar() {
   localStorage.setItem("contas", JSON.stringify(contas));
+  localStorage.setItem("extras", JSON.stringify(extras));
 }
 
-/* ===== ADICIONAR CONTA ===== */
-function addConta() {
+function adicionarConta() {
   const nome = document.getElementById("nome").value;
   const valor = document.getElementById("valor").value;
   const vencimento = document.getElementById("vencimento").value;
@@ -122,6 +128,8 @@ function addConta() {
     return;
   }
 
+  const data = new Date(vencimento);
+
   contas.push({
     nome,
     valor: Number(valor),
@@ -129,48 +137,66 @@ function addConta() {
     recorrente,
     paga: false,
     notificada: false,
-    mesRef: new Date(vencimento).getMonth(),
-    anoRef: new Date(vencimento).getFullYear()
+    mes: data.getMonth(),
+    ano: data.getFullYear()
   });
 
   salvar();
   render();
 }
 
-/* ===== MARCAR COMO PAGA ===== */
-function pagar(index) {
-  contas[index].paga = true;
+function adicionarExtra() {
+  const nome = document.getElementById("extraNome").value;
+  const valor = document.getElementById("extraValor").value;
+
+  if (!nome || !valor) {
+    alert("Preencha o gasto extra");
+    return;
+  }
+
+  const hoje = new Date();
+
+  extras.push({
+    nome,
+    valor: Number(valor),
+    mes: hoje.getMonth(),
+    ano: hoje.getFullYear()
+  });
+
   salvar();
   render();
 }
 
-/* ===== GERAR CONTAS RECORRENTES ===== */
-function gerarContasDoMes() {
+function pagarConta(i) {
+  contas[i].paga = true;
+  salvar();
+  render();
+}
+
+function gerarRecorrentes() {
   const hoje = new Date();
-  const mesAtual = hoje.getMonth();
-  const anoAtual = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  const ano = hoje.getFullYear();
 
   contas.forEach(c => {
     if (c.recorrente) {
       const existe = contas.some(x =>
-        x.nome === c.nome &&
-        x.mesRef === mesAtual &&
-        x.anoRef === anoAtual
+        x.nome === c.nome && x.mes === mes && x.ano === ano
       );
 
       if (!existe) {
         const dia = new Date(c.vencimento).getDate();
-        const novoVenc = new Date(anoAtual, mesAtual, dia);
+        const novaData = new Date(ano, mes, dia);
 
         contas.push({
           nome: c.nome,
           valor: c.valor,
-          vencimento: novoVenc.toISOString().split("T")[0],
+          vencimento: novaData.toISOString().split("T")[0],
           recorrente: true,
           paga: false,
           notificada: false,
-          mesRef: mesAtual,
-          anoRef: anoAtual
+          mes,
+          ano
         });
       }
     }
@@ -179,56 +205,24 @@ function gerarContasDoMes() {
   salvar();
 }
 
-/* ===== TOTAL DO MÊS ===== */
-function calcularTotalDoMes() {
-  const hoje = new Date();
-  const mesAtual = hoje.getMonth();
-  const anoAtual = hoje.getFullYear();
-
-  let total = 0;
-
-  contas.forEach(c => {
-    if (c.mesRef === mesAtual && c.anoRef === anoAtual) {
-      total += Number(c.valor);
-    }
-  });
-
-  totalMesDiv.innerText = 
-    "Total do mês: R$ " + total.toFixed(2).replace(".", ",");
-}
-
-/* ===== NOTIFICAÇÃO ÀS 12H ===== */
-function verificarNotificacoes() {
-  const agora = new Date();
-  if (agora.getHours() !== 12) return;
-
-  contas.forEach(c => {
-    if (c.paga || c.notificada) return;
-
-    const dias = Math.ceil(
-      (new Date(c.vencimento) - agora) / 86400000
-    );
-
-    if (dias === 2) {
-      navigator.serviceWorker.ready.then(reg => {
-        reg.showNotification("Conta vence em 2 dias", {
-          body: `${c.nome} - R$ ${c.valor.toFixed(2)}`,
-          icon: "icon-192.png"
-        });
-      });
-
-      c.notificada = true;
-      salvar();
-    }
-  });
-}
-
-/* ===== RENDER ===== */
 function render() {
   pendentes.innerHTML = "";
   pagas.innerHTML = "";
 
+  let totalPendente = 0;
+  let totalPago = 0;
+  let totalExtra = 0;
+
+  const filtro = filtroMes.value
+    ? new Date(filtroMes.value + "-01")
+    : new Date();
+
+  const mes = filtro.getMonth();
+  const ano = filtro.getFullYear();
+
   contas.forEach((c, i) => {
+    if (c.mes !== mes || c.ano !== ano) return;
+
     const div = document.createElement("div");
     div.className = "conta" + (c.paga ? " paga" : "");
 
@@ -236,17 +230,54 @@ function render() {
       <strong>${c.nome}</strong><br>
       R$ ${c.valor.toFixed(2)}<br>
       Vencimento: ${c.vencimento}<br>
-      ${!c.paga ? `<button onclick="pagar(${i})">Marcar como paga</button>` : ""}
+      ${!c.paga ? `<button onclick="pagarConta(${i})">Marcar como paga</button>` : ""}
     `;
 
-    c.paga ? pagas.appendChild(div) : pendentes.appendChild(div);
+    if (c.paga) {
+      totalPago += c.valor;
+      pagas.appendChild(div);
+    } else {
+      totalPendente += c.valor;
+      pendentes.appendChild(div);
+    }
   });
 
-  calcularTotalDoMes();
+  extras.forEach(e => {
+    if (e.mes === mes && e.ano === ano) {
+      totalExtra += e.valor;
+    }
+  });
+
+  document.getElementById("totalPendente").innerText = totalPendente.toFixed(2);
+  document.getElementById("totalPago").innerText = totalPago.toFixed(2);
+  document.getElementById("totalExtra").innerText = totalExtra.toFixed(2);
+  document.getElementById("totalMes").innerText =
+    (totalPendente + totalPago + totalExtra).toFixed(2);
 }
 
-/* ===== INICIAR ===== */
-gerarContasDoMes();
+function verificarNotificacoes() {
+  const agora = new Date();
+  if (agora.getHours() !== 12) return;
+
+  contas.forEach(c => {
+    if (c.paga || c.notificada) return;
+
+    const venc = new Date(c.vencimento);
+    const dias = Math.ceil((venc - agora) / 86400000);
+
+    if (dias === 2) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification("Conta vence em 2 dias", {
+          body: `${c.nome} - R$ ${c.valor.toFixed(2)}`
+        });
+      });
+      c.notificada = true;
+      salvar();
+    }
+  });
+}
+
+gerarRecorrentes();
 render();
 setInterval(verificarNotificacoes, 60000);
 </script>
