@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <link rel="manifest" href="/controle-contas/manifest.json">
+<meta name="theme-color" content="#2e7d32">
   <meta charset="UTF-8">
   <title>Controle de Contas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -97,6 +99,9 @@
 </div>
 
 <script>
+  if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/controle-contas/sw.js");
+}
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
 }
